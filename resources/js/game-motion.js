@@ -26,7 +26,8 @@ export function planGameTransition(previous, next, game = next?.game) {
             break;
         case 'mines': {
             const revealed = new Set(before?.revealed || []);
-            (next.revealed || []).filter(cell => !revealed.has(cell)).forEach((index, order) => {
+            const mines = new Set(next.minesPositions || []);
+            (next.revealed || []).filter(cell => !revealed.has(cell) && !mines.has(cell)).forEach((index, order) => {
                 effects.push({ type: 'mine-reveal', index, delay: Math.min(order * 35, 350) });
             });
             if (next.status === 'lost' && before?.status === 'active') {
@@ -91,6 +92,7 @@ export function createGameMotion(board, game) {
     const window = document?.defaultView || globalThis;
     const media = window.matchMedia?.('(prefers-reduced-motion: reduce)');
     const tasks = new Set();
+    const cssTasks = new WeakMap();
     const persistentStyles = new Map();
     const stateClasses = new Map();
     let generation = 0;
@@ -118,8 +120,14 @@ export function createGameMotion(board, game) {
         node.classList.toggle(name, enabled);
     }
 
-    function cssMotion(node, className, duration, delay = 0, target = node, inlineAnimation = null) {
+    function cssMotion(node, className, duration, delay = 0, inlineAnimation = null) {
         if (!node || !canAnimate()) return;
+        const previousTask = cssTasks.get(node);
+        if (previousTask) {
+            previousTask.finish();
+            // Flush removal so a repeated keystroke starts a fresh CSS timeline.
+            void node.offsetWidth;
+        }
         const saved = new Map();
         for (const property of ['--motion-delay', '--motion-duration', ...(inlineAnimation ? ['animation'] : [])]) {
             saved.set(property, [node.style.getPropertyValue(property), node.style.getPropertyPriority(property)]);
@@ -142,8 +150,10 @@ export function createGameMotion(board, game) {
                 else node.style.removeProperty(property);
             }
             tasks.delete(task);
+            if (cssTasks.get(node) === task) cssTasks.delete(node);
         }
         tasks.add(task);
+        cssTasks.set(node, task);
     }
 
     function later(callback, delay) {
@@ -300,7 +310,7 @@ export function createGameMotion(board, game) {
                     cssMotion(all('.plinko-bin')[next.slot], 'is-winning', 540, DURATIONS.plinko - 80);
                     break;
                 case 'crash-end':
-                    cssMotion(query('.crash-value'), 'is-settling', 450, 0, undefined, 'motion-crash-end 450ms ease-out backwards');
+                    cssMotion(query('.crash-value'), 'is-settling', 450, 0, 'motion-crash-end 450ms ease-out backwards');
                     break;
             }
         }

@@ -40,7 +40,7 @@ test('Mines reveals animate newly opened cells and terminal mines once', () => {
     const previous = round('mines', { revealed: [2, 4] });
     const next = { ...previous, revealed: [2, 4, 7] };
     assert.deepEqual(planGameTransition(previous, next), [{ type: 'mine-reveal', index: 7, delay: 0 }]);
-    const lost = { ...next, status: 'lost', minesPositions: [1, 8] };
+    const lost = { ...next, status: 'lost', revealed: [...next.revealed, 1], minesPositions: [1, 8] };
     assert.deepEqual(planGameTransition(next, lost).map(effect => [effect.type, effect.index]), [['mine-hit', 1], ['mine-hit', 8]]);
     assert.deepEqual(planGameTransition(lost, structuredClone(lost)), []);
 });
@@ -208,5 +208,19 @@ test('duplicate apply calls do not replay cards, and cancel restores owned inlin
     assert.equal(first.classList.contains('is-dealing'), false);
     assert.equal(env.timers.size, 0);
     motion.cancel();
+});
+
+test('rapid typing replaces the previous node motion instead of stacking cleanup timers', () => {
+    const cell = node('A');
+    const env = environment();
+    const motion = createGameMotion(env.board, 'liotodle');
+    motion.typeCell(cell);
+    motion.typeCell(cell);
+    assert.equal(env.timers.size, 1);
+    assert.equal(cell.classList.contains('is-typing'), true);
+    motion.cancel();
+    assert.equal(env.timers.size, 0);
+    assert.equal(cell.classList.contains('is-typing'), false);
+    assert.equal(cell.style.getPropertyValue('--motion-delay'), '');
 });
 
