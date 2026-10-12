@@ -37,6 +37,8 @@ jobs:
           npm audit
       - name: Build frontend
         run: npm run build
+      - name: Check game animation transitions
+        run: npm test
       - name: Exercise security and database lifecycle
         run: php artisan test
       - name: Check fresh setup and repeat setup

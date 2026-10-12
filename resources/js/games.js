@@ -1,3 +1,5 @@
+import {createGameMotion} from './game-motion.js';
+
 const page = document.querySelector('[data-game]');
 if (page) initializeGame(page);
 
@@ -15,6 +17,7 @@ function initializeGame(page) {
     const multiplier = document.getElementById('round-multiplier');
     const payout = document.getElementById('round-payout');
     const stageState = document.getElementById('stage-state');
+    const motion = createGameMotion(board, game);
     const csrf = document.querySelector('meta[name="csrf-token"]').content;
     const format = value => new Intl.NumberFormat('fr-CA').format(Number(value));
     let round = null;
@@ -55,7 +58,7 @@ function initializeGame(page) {
         syncControls();
     }
     function syncControls() {
-        for (const input of form.querySelectorAll('input,select,button')) input.disabled = !authenticated || busy || active();
+        for (const input of form.querySelectorAll('input,select,button')) input.disabled = busy || active() || (!authenticated && input.id !== 'mines');
         start.textContent = active() ? 'Partie en cours' : (game === 'liotodle' ? 'Commencer le défi ↗' : (round ? 'Rejouer ↗' : 'Jouer ↗'));
         if (dailyComplete && game === 'liotodle' && !active()) {
             start.disabled = true;
@@ -93,11 +96,11 @@ function initializeGame(page) {
         }
         if (sequence >= appliedSequence) {
             appliedSequence = sequence;
-            apply(payload, poll);
+            apply(payload, poll, Boolean(data) && !poll);
         }
         return payload;
     }
-    function apply(payload, quiet = false) {
+    function apply(payload, quiet = false, animate = false) {
         if (typeof payload.balance === 'number') {
             availableBalance = payload.balance;
             document.querySelectorAll('[data-balance]').forEach(node => node.textContent = format(payload.balance));
@@ -105,9 +108,11 @@ function initializeGame(page) {
             if (stake) stake.max = String(Math.max(1, Math.min(10000, payload.balance)));
         }
         const next = payload.round;
+        const previous = round;
         const newRound = next?.id !== round?.id;
         round = next || null;
         if (newRound) {held.clear();draftWord='';}
+        if (game === 'liotodle' && (round?.guesses?.length || 0) > (previous?.guesses?.length || 0)) draftWord = '';
         if (active() && here()) {
             const stakeInput = document.getElementById('stake');
             if (stakeInput) stakeInput.value = String(round.stake);
@@ -116,6 +121,7 @@ function initializeGame(page) {
                 if (field && round[option] !== undefined) field.value = String(round[option]);
             }
         }
+        syncMineSlider();
         const liveUpdate = quiet && !newRound && active() && here() && game === 'crash';
         if (!liveUpdate) controls.replaceChildren();
         controls.hidden = !active() || !here();
@@ -128,12 +134,11 @@ function initializeGame(page) {
         } else {
             if (liveUpdate) {
                 const current = Number(round.currentMultiplier || 1);
-                const rise = Math.min(225,Math.max(10,(current-1)*80));
-                board.querySelector('.crash-value').textContent = current.toFixed(2) + '×';
-                board.querySelector('.graph-line').setAttribute('d','M10 250 C150 250 225 240 330 ' + (250-rise*.45) + ' S430 ' + (250-rise) + ' 485 ' + (250-rise));
+                motion.crash(Number(previous?.currentMultiplier ?? 1), current);
                 controls.querySelector('.cashout').textContent = 'Encaisser ' + format(Math.floor(round.stake * current)) + ' pts';
             } else {
                 renderBoard();
+                motion.apply(previous, round, {animate: animate || (quiet && previous?.status === 'active' && round?.status !== 'active')});
                 renderActions();
             }
             if (round) {
@@ -205,6 +210,7 @@ function initializeGame(page) {
             await request(endpoint + '/' + encodeURIComponent(round.id) + '/actions',{action,...data});
         } catch(error) {
             announce(error.message,'error');
+            if (game === 'liotodle') motion.invalidWord();
             if (game === 'crash') {
                 try {await request(endpoint + '/current');} catch {}
             }
@@ -243,16 +249,18 @@ function initializeGame(page) {
     }
     function renderBoard() {
         // All contents use DOM text nodes; user and server strings never become HTML.
+        motion.cancel();
         board.replaceChildren();
         const state = here() ? round : null;
         switch(game) {
             case 'blackjack': {
                 const zone=el('div','cards-zone');
                 const cardSets=[['Croupier',state?.dealerCards || [{hidden:true},{hidden:true}],state?.dealerTotal],['Votre main',state?.playerCards || [{hidden:true},{hidden:true}],state?.playerTotal]];
-                cardSets.forEach(([label,cards,total]) => {
+                cardSets.forEach(([label,cards,total],setIndex) => {
                     const row=el('div');
                     row.append(el('div','card-caption',label + (total != null ? ' · ' + total : '')));
                     const group=el('div','card-group');
+                    group.dataset.cardSet = setIndex === 0 ? 'dealer' : 'player';
                     cards.forEach((card,i)=>group.append(playingCard(card,i)));
                     row.append(group);zone.append(row);
                 });
@@ -301,6 +309,7 @@ function initializeGame(page) {
                     state.path.forEach((direction,index)=>{x+=direction ? 18 : -18;path+=' L'+x+' '+((index+1)*24);});
                     path+=' L'+(20+state.slot*50)+' 238';
                     trajectory.append(svg('path',{d:path,class:'plinko-trail'}));
+                    trajectory.append(svg('circle',{cx:20+state.slot*50,cy:238,r:6,class:'plinko-ball'}));
                     panel.append(trajectory);
                 }
                 const bins=el('div','plinko-bins');
@@ -321,7 +330,7 @@ function initializeGame(page) {
                 break;
             }
             case 'slot-machine': {
-                board.append(el('div','slot-header','LIOLUCK · 3 ROULEAUX'));
+                board.append(el('div','slot-header','3 ROULEAUX'));
                 const reels=el('div','slot-display');
                 const symbols={cherry:'🍒',lemon:'🍋',grape:'🍇',bell:'♧',diamond:'◇',seven:'7'};
                 (state?.symbols || ['seven','seven','seven']).forEach(symbol=>reels.append(el('span','slot-reel',symbols[symbol] || '7')));
@@ -335,10 +344,10 @@ function initializeGame(page) {
                 const panel=el('div','crash-board');
                 const chart=svg('svg',{viewBox:'0 0 500 280',class:'crash-chart','aria-hidden':'true'});
                 chart.append(svg('path',{d:'M10 20V260H490 M10 180H490 M10 100H490 M110 20V260 M210 20V260 M310 20V260 M410 20V260',class:'graph-grid'}));
-                const current=state ? Number(state.currentMultiplier || state.multiplier || 1) : 1;
+                const current=state ? Number(state.status === 'lost' ? (state.crashAt ?? state.currentMultiplier ?? 1) : (state.currentMultiplier ?? state.multiplier ?? 1)) : 1;
                 const rise=Math.min(225,Math.max(10,(current-1)*80));
                 chart.append(svg('path',{d:'M10 250 C150 250 225 240 330 ' + (250-rise*.45) + ' S430 ' + (250-rise) + ' 485 ' + (250-rise),class:'graph-line'}));
-                panel.append(chart,el('div','crash-value' + (state?.status==='lost' ? ' busted' : ''),current.toFixed(2) + '×'),el('div','crash-label',state?.status==='lost' ? 'CRASH' : state?.status==='won' ? 'ENCAISSÉ' : 'LE BON MOMENT, C’EST LE VÔTRE'));
+                panel.append(chart,el('div','crash-value' + (state?.status==='lost' ? ' busted' : ''),current.toFixed(2) + '×'),el('div','crash-label',state?.status==='lost' ? 'CRASH' : state?.status==='won' ? 'ENCAISSÉ' : state ? 'EN COURS' : 'PRÊT'));
                 board.append(panel);
                 break;
             }
@@ -400,18 +409,18 @@ function initializeGame(page) {
         const offset=(round?.guesses?.length || 0)*5;
         const cells=board.querySelectorAll('.word-cell');
         for(let i=0;i<5;i++) if(cells[offset+i]) {
+            const changed = cells[offset+i].textContent !== (draftWord[i] || '');
             cells[offset+i].textContent=draftWord[i]||'';
             cells[offset+i].classList.toggle('typed',Boolean(draftWord[i]));
+            if (changed && draftWord[i]) motion.typeCell(cells[offset+i]);
         }
     }
     async function guessWord() {
-        if(draftWord.length!==5) {announce('Votre mot doit contenir cinq lettres.','error');return;}
+        if(draftWord.length!==5) {announce('Votre mot doit contenir cinq lettres.','error');motion.invalidWord();return;}
         if(busy||!active())return;
         const before=round.guesses.length;
         await act('guess',{word:draftWord});
         if(round.guesses.length>before) {
-            draftWord='';
-            renderBoard();syncControls();
             if(active())document.getElementById('word-input')?.focus();
         }
     }
@@ -441,12 +450,24 @@ function initializeGame(page) {
     forfeit.addEventListener('click',()=>{
         if(window.confirm('Abandonner cette manche ? La mise engagée sera perdue.'))act('forfeit');
     });
-    for(const id of ['risk','mines'])document.getElementById(id)?.addEventListener('change',()=>{if(!round)renderBoard();syncControls();});
+    function syncMineSlider() {
+        const slider = document.getElementById('mines');
+        if (!slider) return;
+        const count = Number(slider.value);
+        const minesLabel = count + (count === 1 ? ' mine' : ' mines');
+        const safeLabel = (25-count) + (count === 24 ? ' diamant' : ' diamants');
+        document.getElementById('mine-count').textContent = minesLabel;
+        document.getElementById('safe-count').textContent = safeLabel;
+        slider.style.setProperty('--range-progress', ((count-1)/23*100) + '%');
+        slider.setAttribute('aria-valuetext', minesLabel + ', ' + safeLabel);
+    }
+    document.getElementById('mines')?.addEventListener('input',()=>{syncMineSlider();if(!round)renderBoard();syncControls();});
+    document.getElementById('risk')?.addEventListener('change',()=>{if(!round)renderBoard();syncControls();});
     document.addEventListener('visibilitychange',()=>{
-        if(document.hidden)clearTimeout(pollTimer);
+        if(document.hidden) clearTimeout(pollTimer);
         else if(authenticated&&game==='crash')request(endpoint+'/current').catch(error=>announce(error.message,'error'));
     });
-    renderBoard();syncControls();
+    syncMineSlider();renderBoard();syncControls();
     if(dailyComplete) announce('Votre défi du jour a déjà commencé ou est terminé. Les parties en cours se reprennent automatiquement; revenez demain pour un nouveau mot.');
     if(authenticated) {
         setBusy(true);

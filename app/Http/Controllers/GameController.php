@@ -30,7 +30,7 @@ class GameController extends Controller
             'options.side' => ['sometimes', Rule::in(['heads', 'tails'])],
             'options.selection' => ['sometimes', Rule::in(array_merge(['red', 'black', 'green'], array_map('strval', range(0, 36))))],
             'options.risk' => ['sometimes', Rule::in(['low', 'medium', 'high'])],
-            'options.mines' => ['sometimes', 'integer', 'min:1', 'max:10'],
+            'options.mines' => ['sometimes', 'integer', 'min:1', 'max:'.GameRoundService::MINES_MAX],
             'options.difficulty' => ['sometimes', Rule::in(['easy', 'medium', 'hard'])],
         ]);
         if (($validated['game'] === 'liotodle' && (int) $validated['stake'] !== 0)

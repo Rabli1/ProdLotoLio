@@ -12,6 +12,7 @@ use Illuminate\Validation\ValidationException;
 class GameRoundService
 {
     public const GAMES = ['blackjack', 'plinko', 'mines', 'chicken-road', 'roulette', 'slot-machine', 'crash', 'coinflip', 'poker', 'liotodle'];
+    public const MINES_MAX = 24;
     private const RED_NUMBERS = [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36];
     private const PLINKO = [
         'low' => [3, 1.5, 1, .8, .5, .8, 1, 1.5, 3],

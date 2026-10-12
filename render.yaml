@@ -1,8 +1,11 @@
 # Deploy using Render's included HTTPS onrender.com URL.
 # The only manually supplied secret is a Neon Free PostgreSQL DIRECT connection URL.
+# Production releases retain contributor history from the original Rabli1/LioLoto repository.
 services:
   - type: web
     name: lioloto
+    repo: https://github.com/Rabli1/ProdLotoLio
+    branch: main
     runtime: docker
     plan: free
     region: ohio

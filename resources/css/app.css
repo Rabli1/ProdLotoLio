@@ -1848,8 +1848,8 @@ label {
     margin-bottom:15px
 }
 
-.slot-display.is-spinning .slot-reel {
-    animation:reel-bounce .18s ease-in-out infinite alternate
+.slot-display.is-spinning .slot-reel:not(.is-stopping) {
+    animation:motion-reel-spin .32s ease-in-out infinite alternate
 }
 
 .coin-display {
@@ -1871,7 +1871,7 @@ label {
 }
 
 .coin-display.is-flipping {
-    animation:coin-spin .65s ease-in-out infinite
+    animation:motion-coin-flip .8s cubic-bezier(.4,0,.6,1) infinite
 }
 
 .coin-caption {
@@ -2483,24 +2483,8 @@ tr.current-player td {
     overflow-wrap:anywhere
 }
 
-@keyframes reel-bounce {
-    to {
-        transform:translateY(3px);
-        filter:blur(1px)
-    }
-}
-
-@keyframes coin-spin {
-    50% {
-        transform:rotateY(180deg) translateY(-15px)
-    }
-    100% {
-        transform:rotateY(360deg)
-    }
-}
-
 .is-loading .game-board {
-    opacity:.75
+    opacity:.94
 }
 
 .is-loading .stage-topline .live-dot {
@@ -3400,7 +3384,7 @@ tr.current-player td {
     stroke-linecap:round;
     stroke-linejoin:round;
     stroke-dasharray:700;
-    animation:plinko-trail .65s ease-out both;
+    animation:plinko-trail var(--motion-duration,.8s) ease-out both;
     opacity:.65;
 }
 @keyframes plinko-trail {
@@ -3417,4 +3401,415 @@ tr.current-player td {
 .word-input-form .button {
     flex:0 0 auto;
     white-space:nowrap;
+}
+
+/* Motion hooks are applied to changed elements after authoritative round updates. */
+.card-group,
+.mine-board,
+.word-board {
+    perspective:1000px;
+}
+
+.playing-card,
+.mine-cell,
+.word-cell {
+    backface-visibility:hidden;
+}
+
+.playing-card.is-dealing {
+    animation:motion-card-deal var(--motion-duration,.44s) cubic-bezier(.2,.8,.2,1) var(--motion-delay,0s) backwards;
+}
+
+.playing-card.is-revealing {
+    animation:motion-card-reveal var(--motion-duration,.46s) cubic-bezier(.2,.7,.2,1) var(--motion-delay,0s) backwards;
+}
+
+.mine-cell {
+    position:relative;
+    transform-style:preserve-3d;
+}
+
+.mine-cell.revealed {
+    box-shadow:inset 0 0 20px #77e6ba12,0 0 12px #8bdfc008;
+}
+
+.mine-cell.revealed::after {
+    content:"";
+    position:absolute;
+    inset:5px;
+    border:1px solid #afffd44d;
+    border-radius:7px;
+    opacity:0;
+    pointer-events:none;
+}
+
+.mine-cell.is-revealing {
+    animation:motion-cell-reveal var(--motion-duration,.48s) cubic-bezier(.16,.75,.26,1) var(--motion-delay,0s) backwards;
+}
+
+.mine-cell.revealed.is-revealing::after {
+    animation:motion-gem-glow .7s ease-out var(--motion-delay,0s) backwards;
+}
+
+.mine-cell.is-hit {
+    animation:motion-hit .42s ease-out var(--motion-delay,0s) backwards;
+}
+
+.coin-display {
+    transform-style:preserve-3d;
+    transform-origin:center;
+}
+
+.coin-display.is-landing {
+    animation:motion-coin-land .54s cubic-bezier(.22,.8,.25,1) var(--motion-delay,0s) backwards;
+}
+
+.slot-display {
+    isolation:isolate;
+}
+
+.slot-display::after {
+    content:"";
+    position:absolute;
+    inset:10px;
+    border-radius:11px;
+    border:1px solid #fff5d32e;
+    pointer-events:none;
+}
+
+.slot-display .slot-reel.is-stopping {
+    animation:motion-reel-stop var(--motion-duration,.4s) cubic-bezier(.18,.8,.3,1) var(--motion-delay,0s) backwards;
+}
+
+.roulette-wheel::before {
+    content:"";
+    position:absolute;
+    inset:0;
+    border-radius:50%;
+    background:inherit;
+    pointer-events:none;
+}
+
+.roulette-wheel.is-spinning::before {
+    animation:motion-wheel-spin var(--motion-duration,1.2s) cubic-bezier(.12,.8,.16,1) backwards;
+}
+
+.roulette-result.is-revealing {
+    animation:motion-result-reveal .42s cubic-bezier(.18,.8,.2,1) var(--motion-delay,0s) backwards;
+}
+
+.plinko-ball {
+    fill:var(--mint);
+    stroke:#e4ffbe;
+    stroke-width:1;
+    filter:drop-shadow(0 0 5px #b4f87566);
+    pointer-events:none;
+}
+
+.plinko-bin.is-winning {
+    animation:motion-bin-land .54s cubic-bezier(.18,.85,.25,1) var(--motion-delay,0s) backwards;
+}
+
+.road-lane.is-crossing .chicken {
+    animation:motion-chicken-step .4s cubic-bezier(.2,.8,.25,1) var(--motion-delay,0s) backwards;
+}
+
+.road-lane.is-hit .chicken {
+    animation:motion-hit .45s ease-out var(--motion-delay,0s) backwards;
+}
+
+.crash-chart .graph-line {
+    transition:stroke .28s ease,filter .28s ease;
+}
+
+.crash-board.is-running .graph-line {
+    filter:drop-shadow(0 0 5px #b4f87524);
+}
+
+.crash-board.is-crashed .graph-line {
+    stroke:var(--red);
+    filter:drop-shadow(0 0 5px #ff7e8824);
+}
+
+.crash-board.is-crashed .crash-value {
+    color:var(--red);
+    animation:motion-crash-end .45s ease-out backwards;
+}
+
+.crash-value.is-settling {
+    animation:motion-result-reveal .35s ease-out backwards;
+}
+
+.word-cell.is-typing {
+    animation:motion-word-type .17s ease-out backwards;
+}
+
+.word-cell.is-revealing {
+    animation:motion-word-reveal var(--motion-duration,.44s) cubic-bezier(.2,.65,.25,1) var(--motion-delay,0s) backwards;
+}
+
+.word-cell.is-celebrating {
+    animation:motion-word-win .48s ease-in-out var(--motion-delay,0s) backwards;
+}
+
+.word-board.is-invalid {
+    animation:motion-hit .32s ease-out backwards;
+}
+
+.mine-slider {
+    margin:3px 0 20px;
+}
+
+.mine-slider-meta {
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    color:var(--muted);
+    font-size:10px;
+    line-height:1.4;
+    margin:8px 0 7px;
+}
+
+.mine-slider-meta output {
+    font-size:14px;
+    font-weight:700;
+    margin-right:3px;
+    color:var(--mint);
+    font-variant-numeric:tabular-nums;
+}
+
+.mine-slider-meta #mine-count {
+    color:var(--red);
+}
+
+.mine-slider input[type="range"],
+input.mine-slider[type="range"] {
+    appearance:none;
+    -webkit-appearance:none;
+    display:block;
+    width:100%;
+    height:30px;
+    padding:0;
+    margin:6px 0 12px;
+    background:transparent;
+    border:0;
+    border-radius:8px;
+    box-shadow:none;
+    cursor:ew-resize;
+    touch-action:pan-y;
+}
+
+.mine-slider input[type="range"]:focus-visible,
+input.mine-slider[type="range"]:focus-visible {
+    outline:2px solid var(--mint);
+    outline-offset:5px;
+    box-shadow:none;
+}
+
+.mine-slider input[type="range"]::-webkit-slider-runnable-track,
+input.mine-slider[type="range"]::-webkit-slider-runnable-track {
+    height:6px;
+    border-radius:8px;
+    background:linear-gradient(90deg,var(--mint) var(--range-progress,8.7%),#313c4d var(--range-progress,8.7%));
+}
+
+.mine-slider input[type="range"]::-webkit-slider-thumb,
+input.mine-slider[type="range"]::-webkit-slider-thumb {
+    appearance:none;
+    -webkit-appearance:none;
+    height:18px;
+    width:18px;
+    margin-top:-6px;
+    border:3px solid var(--mint);
+    border-radius:50%;
+    background:#173225;
+    box-shadow:0 3px 8px #0004;
+    transition:transform .15s ease,box-shadow .15s ease;
+}
+
+.mine-slider input[type="range"]:not(:disabled):hover::-webkit-slider-thumb,
+input.mine-slider[type="range"]:not(:disabled):hover::-webkit-slider-thumb {
+    transform:scale(1.15);
+    box-shadow:0 3px 10px #b4f87526;
+}
+
+.mine-slider input[type="range"]::-moz-range-track,
+input.mine-slider[type="range"]::-moz-range-track {
+    height:6px;
+    border-radius:8px;
+    background:#313c4d;
+}
+
+.mine-slider input[type="range"]::-moz-range-progress,
+input.mine-slider[type="range"]::-moz-range-progress {
+    height:6px;
+    border-radius:8px;
+    background:var(--mint);
+}
+
+.mine-slider input[type="range"]::-moz-range-thumb,
+input.mine-slider[type="range"]::-moz-range-thumb {
+    height:13px;
+    width:13px;
+    border:3px solid var(--mint);
+    border-radius:50%;
+    background:#173225;
+    box-shadow:0 3px 8px #0004;
+}
+
+.mine-slider input[type="range"]:disabled,
+input.mine-slider[type="range"]:disabled {
+    cursor:not-allowed;
+    opacity:.5;
+}
+
+@media(prefers-reduced-motion:no-preference) {
+    .hero-feature .game-art,
+    .daily-banner .game-art {
+        animation:motion-art-float 7s ease-in-out infinite;
+    }
+
+    .game-tile .game-art {
+        animation:motion-art-float 6s ease-in-out infinite;
+        animation-play-state:paused;
+    }
+
+    .game-tile:hover .game-art,
+    .game-tile:focus-visible .game-art {
+        animation-play-state:running;
+    }
+
+    .game-tile:nth-child(2n) .game-art {
+        animation-delay:-2s;
+    }
+
+    .game-tile:nth-child(3n) .game-art {
+        animation-delay:-4s;
+    }
+
+    .art-slot-glint {
+        animation:motion-glint 5s ease-in-out infinite;
+    }
+}
+
+@keyframes motion-art-float {
+    0%,100% { translate:0 0; }
+    50% { translate:0 -5px; }
+}
+
+@keyframes motion-glint {
+    0%,100% { opacity:.65; scale:.95; }
+    50% { opacity:1; scale:1.08; }
+}
+
+@keyframes motion-card-deal {
+    from { opacity:0; transform:translate3d(38px,-18px,0) rotate(8deg) scale(.95); }
+    72% { opacity:1; transform:translate3d(-2px,1px,0) rotate(-1deg) scale(1); }
+    to { opacity:1; transform:translate3d(0,0,0) rotate(0) scale(1); }
+}
+
+@keyframes motion-card-reveal {
+    from { opacity:.3; transform:rotateY(-90deg) scale(.96); }
+    64% { opacity:1; transform:rotateY(8deg) scale(1.02); }
+    to { opacity:1; transform:rotateY(0) scale(1); }
+}
+
+@keyframes motion-cell-reveal {
+    from { opacity:.45; transform:rotateY(-85deg) scale(.92); }
+    66% { opacity:1; transform:rotateY(8deg) scale(1.07); }
+    to { opacity:1; transform:rotateY(0) scale(1); }
+}
+
+@keyframes motion-gem-glow {
+    0% { opacity:0; transform:scale(.8); }
+    35% { opacity:.8; transform:scale(1); }
+    100% { opacity:0; transform:scale(1.12); }
+}
+
+@keyframes motion-hit {
+    0%,100% { transform:translateX(0); }
+    20% { transform:translateX(-4px) rotate(-1deg); }
+    45% { transform:translateX(4px) rotate(1deg); }
+    70% { transform:translateX(-2px); }
+}
+
+@keyframes motion-coin-flip {
+    0% { transform:perspective(700px) rotateY(0) translateY(0); }
+    25% { transform:perspective(700px) rotateY(90deg) translateY(-13px); }
+    50% { transform:perspective(700px) rotateY(180deg) translateY(-20px); }
+    75% { transform:perspective(700px) rotateY(270deg) translateY(-13px); }
+    100% { transform:perspective(700px) rotateY(360deg) translateY(0); }
+}
+
+@keyframes motion-coin-land {
+    from { opacity:.6; transform:perspective(700px) rotateY(-85deg) translateY(-8px); }
+    64% { opacity:1; transform:perspective(700px) rotateY(7deg) translateY(2px); }
+    to { opacity:1; transform:perspective(700px) rotateY(0) translateY(0); }
+}
+
+@keyframes motion-reel-spin {
+    from { transform:translateY(-8px); filter:blur(1.5px); }
+    to { transform:translateY(8px); filter:blur(3px); }
+}
+
+@keyframes motion-reel-stop {
+    from { opacity:.65; transform:translateY(-14px); filter:blur(3px); }
+    68% { opacity:1; transform:translateY(4px); filter:blur(0); }
+    to { opacity:1; transform:translateY(0); filter:blur(0); }
+}
+
+@keyframes motion-wheel-spin {
+    from { transform:rotate(0); }
+    to { transform:rotate(1080deg); }
+}
+
+@keyframes motion-result-reveal {
+    from { opacity:.45; transform:scale(.88) translateY(4px); }
+    66% { opacity:1; transform:scale(1.04) translateY(-1px); }
+    to { opacity:1; transform:scale(1) translateY(0); }
+}
+
+@keyframes motion-bin-land {
+    from { transform:translateY(0) scale(1); box-shadow:0 0 0 #b4f87500; }
+    45% { transform:translateY(-3px) scale(1.07); box-shadow:0 0 22px #b4f87545; }
+    to { transform:translateY(0) scale(1); box-shadow:0 0 18px #b4f87518; }
+}
+
+@keyframes motion-chicken-step {
+    from { opacity:.65; transform:translate(-17px,4px) rotate(-7deg); }
+    45% { opacity:1; transform:translate(-5px,-11px) rotate(6deg); }
+    to { opacity:1; transform:translate(0,0) rotate(0); }
+}
+
+@keyframes motion-crash-end {
+    0% { transform:scale(1); }
+    28% { transform:scale(.94) translateY(2px); }
+    62% { transform:scale(1.03); }
+    100% { transform:scale(1); }
+}
+
+@keyframes motion-word-type {
+    from { transform:scale(.92); }
+    60% { transform:scale(1.07); }
+    to { transform:scale(1); }
+}
+
+@keyframes motion-word-reveal {
+    from { opacity:.5; transform:rotateX(-90deg); }
+    62% { opacity:1; transform:rotateX(9deg); }
+    to { opacity:1; transform:rotateX(0); }
+}
+
+@keyframes motion-word-win {
+    0%,100% { transform:translateY(0); }
+    42% { transform:translateY(-7px); }
+    70% { transform:translateY(2px); }
+}
+
+@media(prefers-reduced-motion:reduce) {
+    .mine-slider input[type="range"]::-webkit-slider-thumb,
+    input.mine-slider[type="range"]::-webkit-slider-thumb {
+        transition:none!important;
+    }
 }

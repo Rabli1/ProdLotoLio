@@ -1,14 +1,16 @@
-# LioLoto
+# ProdLotoLio
 
 A Laravel 12 game lounge using virtual points. Accounts and game rounds live in SQL; game outcomes and balance changes are handled by the server. The interface is built with Blade and Vite. Daily Liotodle access resets at midnight UTC (the application timezone).
+
+The production source is [Rabli1/ProdLotoLio](https://github.com/Rabli1/ProdLotoLio), branch `main`. It preserves the original Git history and contributor attribution from [Rabli1/LioLoto](https://github.com/Rabli1/LioLoto). Contributor work continues in the original repository; production releases use ProdLotoLio. The application remains named LioLoto.
 
 ## Deploy free on Render with Neon
 
 `render.yaml` provisions one **Free Docker web service** using Render's included HTTPS `onrender.com` address. It requests no custom domain, persistent disk, paid worker or Render database. The app uses an external **Neon Free PostgreSQL** database for accounts, rounds, sessions and cache, so Render restarts preserve player data. Choose the Free plan in both dashboards. [Render Blueprint reference](https://render.com/docs/blueprint-spec), [Neon Free plan](https://neon.com/blog/neon-free-plan-1-gb-per-project).
 
-1. Make this patched source, including both lockfiles and `render.yaml`, available in a Git repository you control. The deployment must use these changes rather than the original upstream snapshot.
+1. Use [Rabli1/ProdLotoLio](https://github.com/Rabli1/ProdLotoLio), branch `main`, including both lockfiles and `render.yaml`. This production repository retains the contributor history from the original LioLoto repository.
 2. Create a Neon project on its **Free** plan in **Ohio (AWS us-east-2)** to match the Render blueprint. In Neon's **Connect** panel, switch **Connection pooling off** and copy the **Direct connection** PostgreSQL URL, including `sslmode=require`. Its hostname must not include `-pooler`. This single-instance app uses the same direct URL for runtime queries and startup schema migrations. Keep the full, unwrapped, single-line URL private. [Neon connection guide](https://neon.com/docs/connect/connect-from-any-app), [Neon Laravel migration guide](https://neon.com/docs/guides/laravel-migrations).
-3. In Render, create a new **Blueprint**, connect that repository, and select `render.yaml`. Verify the service plan remains **Free**. When prompted for `DATABASE_URL`, paste the Neon **Direct connection** URL with Connection pooling off.
+3. In Render, create a new **Blueprint**, connect `Rabli1/ProdLotoLio` with branch `main`, and select `render.yaml`. For the existing service, update its linked repository and branch to the same production source. Verify the service plan remains **Free**. Preserve the existing application key and database secret when reconnecting the service. When prompted for `DATABASE_URL`, paste the Neon **Direct connection** URL with Connection pooling off.
 4. Render builds the Docker image and starts the app. Open the service's generated `https://…onrender.com` address once its `/up` health check passes. Automatic deployments are off in the blueprint; deploy the source commit you choose from Render's dashboard.
 
 Render generates `APP_KEY_MATERIAL` once. Startup prefixes this stable secret with `base64:` for Laravel, uses `RENDER_EXTERNAL_URL` as `APP_URL`, binds Apache to Render's numeric `PORT`, and runs forward migrations. Every restart retains the same encryption key and SQL data. Preserve the generated secret if recreating the service. Secrets are supplied in Render's dashboard, not committed. [Render generated secrets](https://render.com/docs/blueprint-spec#generating-random-secrets), [Render environment variables](https://render.com/docs/environment-variables).
@@ -22,8 +24,8 @@ Render Free sleeps when idle and has usage limits; the next visit can take longe
 Requirements: PHP 8.2 or later with PDO SQLite (or PDO MySQL), mbstring, openssl, tokenizer, XML, ctype, fileinfo and curl; Composer 2; Node.js 24 with npm. Commit both lockfiles and use `composer install` / `npm ci`, rather than updating dependencies during a release.
 
 ```powershell
-git clone https://github.com/Rabli1/LioLoto.git
-cd LioLoto
+git clone --branch main https://github.com/Rabli1/ProdLotoLio.git
+cd ProdLotoLio
 ./scripts/setup.ps1 -Demo
 php artisan serve --no-reload
 ```
@@ -31,8 +33,8 @@ php artisan serve --no-reload
 On Linux/macOS:
 
 ```sh
-git clone https://github.com/Rabli1/LioLoto.git
-cd LioLoto
+git clone --branch main https://github.com/Rabli1/ProdLotoLio.git
+cd ProdLotoLio
 sh scripts/setup.sh --demo
 php artisan serve
 ```
@@ -58,11 +60,11 @@ This prints the resolved database target and applies pending migrations. It pres
 A rebuild deletes **every table** in the selected database. Take a backup first. It requires a separate explicit command, the exact target printed by the script, and `APP_ENV=local` or `testing`:
 
 ```powershell
-./scripts/database.ps1 -Fresh -ConfirmTarget 'sqlite:C:\full\path\LioLoto\database\database.sqlite' -Demo
+./scripts/database.ps1 -Fresh -ConfirmTarget 'sqlite:C:\full\path\ProdLotoLio\database\database.sqlite' -Demo
 ```
 
 ```sh
-sh scripts/database.sh --fresh --confirm=sqlite:/full/path/LioLoto/database/database.sqlite --demo
+sh scripts/database.sh --fresh --confirm=sqlite:/full/path/ProdLotoLio/database/database.sqlite --demo
 ```
 
 For MySQL the confirmation target is `mysql:HOST:PORT:DATABASE`; PostgreSQL uses `pgsql:HOST:PORT:DATABASE`. Production rebuilds are blocked. Normal setup, deployment and container restarts never use `migrate:fresh`. `-Seed` / `--seed` invokes the safe default seeder, which creates no accounts.
@@ -90,7 +92,7 @@ docker compose --env-file .env.production up -d
 docker compose --env-file .env.production ps
 ```
 
-The entrypoint validates production settings, applies forward migrations, caches Laravel configuration/routes/views, and exits on failure. The host binding defaults to `127.0.0.1:8080`; configure your HTTPS reverse proxy to that address. `/up` is the container liveness endpoint. Check startup failures with `docker compose --env-file .env.production logs app`.
+The entrypoint validates production settings, applies forward migrations, caches Laravel configuration/routes/views, and exits on failure. The host binding defaults to `127.0.0.1:8080`; configure your HTTPS reverse proxy to that address. `/up` is the readiness endpoint; it returns HTTP 500 when maintenance is active or required SQL tables are unavailable. Check startup failures with `docker compose --env-file .env.production logs app`.
 
 The named `application_storage` volume holds the SQLite database, sessions and application files across rebuilt images. Preserve it and take regular database backups; `docker compose down -v` deletes it. Do not run multiple containers against a shared SQLite file. For an external MySQL database, configure its credentials in `.env.production` and back it up using the database provider's tooling.
 
@@ -98,7 +100,7 @@ Composer and npm dependencies are fixed by their committed lockfiles. Base image
 
 ## Optional deployment on an existing PHP host
 
-Check out the desired source commit on the server, supply a production `.env` or environment variables using `.env.production.example` as a reference, and configure the web root as `public/`. Make `storage/` and `bootstrap/cache/` writable by the web worker. Configure HTTPS and SMTP before deployment.
+Check out the desired release commit from `Rabli1/ProdLotoLio`, branch `main`, on the server, supply a production `.env` or environment variables using `.env.production.example` as a reference, and configure the web root as `public/`. Make `storage/` and `bootstrap/cache/` writable by the web worker. Configure HTTPS and SMTP before deployment.
 
 ```powershell
 ./scripts/deploy.ps1
@@ -135,6 +137,7 @@ composer validate --strict
 composer audit
 npm audit
 php artisan test
+npm test
 npm run build
 ```
 

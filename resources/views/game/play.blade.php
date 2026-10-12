@@ -19,7 +19,14 @@
                     @case('coinflip')<label for="side">Votre côté</label><select id="side" name="side"><option value="heads">Pile ✦</option><option value="tails">Face L</option></select>@break
                     @case('roulette')<label for="selection">Votre pari</label><select id="selection" name="selection"><option value="red">Rouge · ×2</option><option value="black">Noir · ×2</option><option value="green">Zéro · ×36</option>@for($n=1;$n<=36;$n++)<option value="{{ $n }}">Numéro {{ $n }} · ×36</option>@endfor</select>@break
                     @case('plinko')<label for="risk">Risque</label><select id="risk" name="risk"><option value="low">Faible</option><option value="medium" selected>Moyen</option><option value="high">Élevé</option></select>@break
-                    @case('mines')<label for="mines">Nombre de mines</label><select id="mines" name="mines">@for($n=1;$n<=10;$n++)<option value="{{ $n }}" @selected($n===3)>{{ $n }} {{ $n===1 ? 'mine' : 'mines' }} · {{ 25-$n }} diamants</option>@endfor</select>@break
+                    @case('mines')
+                        <label for="mines">Nombre de mines</label>
+                        <div class="mine-slider">
+                            <div class="mine-slider-meta"><output id="mine-count" for="mines">3 mines</output><output id="safe-count" for="mines">22 diamants</output></div>
+                            <input id="mines" name="mines" type="range" min="1" max="24" step="1" value="3" aria-valuetext="3 mines, 22 diamants" style="--range-progress:8.696%">
+                            <div class="mine-slider-meta" aria-hidden="true"><span>1</span><span>24</span></div>
+                        </div>
+                        @break
                     @case('chicken-road')<label for="difficulty">Difficulté</label><select id="difficulty" name="difficulty"><option value="easy">Facile</option><option value="medium" selected>Moyenne</option><option value="hard">Difficile</option></select>@break
                     @case('liotodle')<div class="daily-panel"><span class="daily-icon">L</span><h3>Le mot du jour</h3><p>5 lettres · 6 essais<br>Aucune mise nécessaire</p></div>@break
                 @endswitch
